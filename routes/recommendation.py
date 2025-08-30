@@ -1,5 +1,3 @@
-# routes/recommendation.py
-
 from fastapi import APIRouter, HTTPException
 from database.db_connection import users_collection, jobs_collection
 from model.recommender import recommend_jobs_for_user
@@ -8,11 +6,11 @@ from bson import ObjectId
 router = APIRouter()
 
 @router.get("/recommend/{user_id}")
-async def get_recommendations(user_id: str):
+def get_recommendations(user_id: str):
     # Step 1: Validate ObjectId
     try:
         user_obj_id = ObjectId(user_id)
-    except:
+    except Exception:
         raise HTTPException(status_code=400, detail="Invalid user_id format")
 
     # Step 2: Fetch user
@@ -20,20 +18,31 @@ async def get_recommendations(user_id: str):
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    # Step 3: Get skills from user document
+    # Step 3: Get skills & profile
     user_skills = user.get("skills", [])
-    if not user_skills:
-        raise HTTPException(status_code=400, detail="No skills found in user profile")
-
-    # Step 4: Fetch jobs from DB
+    
+    # Step 4: Fetch jobs
     jobs = list(jobs_collection.find())
     if not jobs:
-        raise HTTPException(status_code=404, detail="No job listings found")
+        return {
+            "user_id": user_id,
+            "message": "No job listings available right now.",
+            "recommendations": []
+        }
 
-    # Step 5: Get recommendations
+    # Step 5: Generate recommendations
     recommendations = recommend_jobs_for_user(user_skills, jobs)
+
+    # Normal case
+    if not recommendations:
+        return {
+            "user_id": user_id,
+            "message": "No recommendations found at this time. Try updating your skills/profile.",
+            "recommendations": []
+        }
 
     return {
         "user_id": user_id,
+        "message": "Success",
         "recommendations": recommendations
     }

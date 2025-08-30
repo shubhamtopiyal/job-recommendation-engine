@@ -26,6 +26,9 @@ def recommend_jobs_for_user(user_skills, jobs, top_n=5):
     tfidf = TfidfVectorizer()
     tfidf_matrix = tfidf.fit_transform(all_docs)
 
+    if tfidf_matrix.shape[0] < 2:
+        return [] # Not enough data to compare
+
     # Compute cosine similarity between user and all jobs
     cosine_sim = cosine_similarity(tfidf_matrix[0:1], tfidf_matrix[1:]).flatten()
 
@@ -35,9 +38,11 @@ def recommend_jobs_for_user(user_skills, jobs, top_n=5):
     recommendations = []
     for i in top_indices:
         score = float(cosine_sim[i])
-        job = jobs[i]
-        job["_id"] = str(job["_id"])  # Convert MongoDB ObjectId to string
-        job["score"] = round(score, 4)  # Optional: round to 4 decimals
+        if score == 0.0:
+            continue  # skip irrelevant jobs
+        job = jobs[i].copy()  # avoid mutating original
+        job["_id"] = str(job["_id"])  # convert ObjectId to str
+        job["score"] = round(score, 3)
         recommendations.append(job)
 
     return recommendations
